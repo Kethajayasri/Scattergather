@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="fdfb9ea3-0878-4673-bc80-af051939cf41" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<http:request-config name="HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="0b66a91c-8784-4085-a2f4-209d2841e753" >
+		<http:request-connection host="training4-american-ws.cloudhub.io" port="80" />
+	</http:request-config>
+	<db:config name="Database_Config" doc:name="Database Config" doc:id="f5d07d35-92a3-4278-b7c0-c9ae2bd2a5ea" >
+		<db:my-sql-connection host="localhost" port="3306" user="root" password="Js@123456" database="employee" />
+	</db:config>
+	<flow name="scatter-gatherFlow" doc:id="24b73608-0e20-4d48-a7bc-dc4b626eb4ff" >
+		<http:listener doc:name="Listener" doc:id="8dbabd5a-45e8-4bf0-964f-362059efcec7" config-ref="HTTP_Listener_config" path="/scattergather"/>
+		<logger level="INFO" doc:name="Logger" doc:id="3c23f091-7d6e-4a67-9f8d-2f776d92fd58" message="Flowstart"/>
+		<ee:transform doc:name="Transform Message" doc:id="1d27cc86-962a-4490-a297-7c331f0d3cf3" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="Role" ><![CDATA[attributes.queryParams.Role]]></ee:set-variable>
+				<ee:set-variable variableName="Salary" ><![CDATA[attributes.queryParams.Salary]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<scatter-gather doc:name="Scatter-Gather" doc:id="a7909096-991e-4c2e-81da-2a2005d60839">
+			<route>
+				<db:select doc:name="Select" doc:id="2a984a08-2bea-4307-87f5-833fd5c032de" config-ref="Database_Config">
+					<db:sql><![CDATA[select * from employee
+ where Salary = :salary AND Role = :role;]]></db:sql>
+					<db:input-parameters><![CDATA[#[{
+"salary" : vars.Salary,
+"role": vars.Role
+}]]]></db:input-parameters>
+				</db:select>
+			</route>
+			<route>
+				<http:request method="GET" doc:name="Request" doc:id="4cc39d21-dc80-406a-906f-e89f9bb56541" config-ref="HTTP_Request_configuration" path="/api/flights">
+					<http:query-params><![CDATA[#[output application/java
+---
+{
+	"origin" : attributes.queryParams.origin,
+	"destination" : attributes.queryParams.destination
+}]]]></http:query-params>
+				</http:request>
+			</route>
+		</scatter-gather>
+		<ee:transform doc:name="Transform Message" doc:id="34793e21-70bf-44a3-a2f7-359f4afdd8ff" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="9fdf3270-6943-4169-b503-634a0d4a404e" message="FlowEnd"/>
+	</flow>
+</mule>
